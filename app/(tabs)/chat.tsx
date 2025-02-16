@@ -18,8 +18,8 @@ import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Animatable from "react-native-animatable";
 import * as Clipboard from "expo-clipboard";
-import { sendToGemini } from "@/utils/apiUtils"; // Ensure this import is correct
-import { loadCredits } from "@/utils/creditUtils";
+import { sendToGemini } from "@/utils/apiUtils";
+import { deductCredits, loadCredits } from "@/utils/creditUtils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface Message {
@@ -36,16 +36,17 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-   const [credits, setCredits] = useState<number>(0);
+  const [credits, setCredits] = useState<number>(0);
   const flatListRef = useRef<FlatList>(null);
 
-    useEffect(() => {
+  useEffect(() => {
     loadCredits(setCredits);
   }, []);
 
   useEffect(() => {
     AsyncStorage.setItem("userCredits", credits.toString());
   }, [credits]);
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (messages.length > 0) {
@@ -66,6 +67,8 @@ export default function ChatScreen() {
     setInputText("");
     setIsLoading(true);
     Keyboard.dismiss();
+
+    if (!deductCredits(CREDITS_PER_GEMINI_REQUEST, credits, setCredits)) return;
 
     try {
       const responseText = await sendToGemini(inputText.trim());
@@ -121,9 +124,9 @@ export default function ChatScreen() {
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : "padding"} // Use "padding" for both platforms
           style={styles.keyboardAvoidingView}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 25}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0} // Adjust offset for iOS
         >
           <FlatList
             ref={flatListRef}
@@ -136,11 +139,7 @@ export default function ChatScreen() {
             }
             onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
           />
-          <Animatable.View
-            animation="fadeInUp"
-            duration={500}
-            style={styles.inputContainer}
-          >
+          <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
               value={inputText}
@@ -161,7 +160,7 @@ export default function ChatScreen() {
                 <Text style={styles.sendButtonText}>Get</Text>
               )}
             </TouchableOpacity>
-          </Animatable.View>
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </LinearGradient>
@@ -181,7 +180,8 @@ const styles = StyleSheet.create({
   messageList: {
     flexGrow: 1,
     paddingHorizontal: 16,
-    paddingTop: 16, // Add padding at the top for better spacing
+    paddingTop: 16,
+    paddingBottom: 80, // Add padding at the bottom to avoid overlap with the input container
   },
   messageBubble: {
     maxWidth: width * 0.8,
@@ -212,6 +212,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.9)",
     borderTopWidth: 1,
     borderTopColor: "#eee",
+    position: "absolute", // Fix the input container at the bottom
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   input: {
     flex: 1,

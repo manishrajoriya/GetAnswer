@@ -2,34 +2,53 @@ import type React from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert } from "react-native";
 
+// 🚀 Load user credits (default = 10)
 export const loadCredits = async (setCredits: React.Dispatch<React.SetStateAction<number>>) => {
-  const storedCredits = await AsyncStorage.getItem("userCredits");
-  setCredits(storedCredits ? Number.parseInt(storedCredits, 10) : 10); // Default to 10 credits
+  try {
+    const storedCredits = await AsyncStorage.getItem("userCredits");
+    setCredits(storedCredits ? Number.parseInt(storedCredits, 10) : 10);
+  } catch (error) {
+    console.error("Error loading credits:", error);
+    setCredits(10); // Default fallback
+  }
 };
 
-export const deductCredits = (
+// ⚡ Deduct credits (Ensure enough balance)
+export const deductCredits = async (
   amount: number,
   credits: number,
   setCredits: React.Dispatch<React.SetStateAction<number>>
-): boolean => {
-  if (credits >= amount) {
+): Promise<boolean> => {
+  if (credits < amount) {
+    Alert.alert("Insufficient Credits", "You don't have enough credits for this action.");
+    return false;
+  }
+
+  try {
     const newCredits = credits - amount;
     setCredits(newCredits);
-    AsyncStorage.setItem("userCredits", newCredits.toString()); // Update storage
+    await AsyncStorage.setItem("userCredits", newCredits.toString());
     return true;
-  } else {
-    Alert.alert("Insufficient Credits", "You don't have enough credits for this action.");
+  } catch (error) {
+    console.error("Error deducting credits:", error);
+    Alert.alert("Error", "Something went wrong while deducting credits.");
     return false;
   }
 };
 
+// 🎁 Add credits (e.g., after watching ads)
 export const addCredits = async (
   amount: number,
   credits: number,
   setCredits: React.Dispatch<React.SetStateAction<number>>
 ) => {
-  const newCredits = credits + amount;
-  setCredits(newCredits);
-  await AsyncStorage.setItem("userCredits", newCredits.toString()); // Save updated credits
-  Alert.alert("Credits Added", `You have successfully added ${amount} credits.`);
+  try {
+    const newCredits = credits + amount;
+    setCredits(newCredits);
+    await AsyncStorage.setItem("userCredits", newCredits.toString());
+    Alert.alert("Credits Added", `You have successfully added ${amount} credits.`);
+  } catch (error) {
+    console.error("Error adding credits:", error);
+    Alert.alert("Error", "Something went wrong while adding credits.");
+  }
 };
