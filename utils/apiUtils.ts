@@ -31,13 +31,16 @@ export const sendToGemini = async (extractedText: string): Promise<string> => {
   const formattedPrompt = `You are an expert tutor. Provide a clear and well-structured answer to the following exam question:\n\n"${extractedText}"`
 
   const response = await axios.post(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GEMINI_API_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite-preview-02-05:generateContent?key=${GEMINI_API_KEY}`,
     {
       contents: [{ parts: [{ text: formattedPrompt }] }],
     },
     { headers: { "Content-Type": "application/json" } },
   )
-
   return response.data.candidates?.[0]?.content?.parts?.[0]?.text || "No response."
 }
 
+
+
+
+// gemini-2.0-flash-lite-preview-02-05

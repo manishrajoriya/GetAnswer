@@ -1,6 +1,4 @@
-
-
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,41 +10,41 @@ import {
   SafeAreaView,
   Alert,
   StyleSheet,
-} from "react-native"
-import { StatusBar } from "expo-status-bar"
-import * as ImagePicker from "expo-image-picker"
-import AsyncStorage from "@react-native-async-storage/async-storage"
-import { LinearGradient } from "expo-linear-gradient"
-import { Ionicons } from "@expo/vector-icons"
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 
-import { processImage, sendToGemini } from "../../utils/apiUtils"
-import { deductCredits, loadCredits } from "../../utils/creditUtils"
+import { processImage, sendToGemini } from "../../utils/apiUtils";
+import { deductCredits, loadCredits } from "../../utils/creditUtils";
 
-const CREDITS_PER_IMAGE = 1
-const CREDITS_PER_GEMINI_REQUEST = 2
+const CREDITS_PER_IMAGE = 1;
+const CREDITS_PER_GEMINI_REQUEST = 2;
 
 export default function OCRScreen() {
-  const [imageUri, setImageUri] = useState<string | null>(null)
-  const [extractedText, setExtractedText] = useState<string>("")
-  const [geminiResponse, setGeminiResponse] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [credits, setCredits] = useState<number>(0)
+  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [extractedText, setExtractedText] = useState<string>("");
+  const [geminiResponse, setGeminiResponse] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [credits, setCredits] = useState<number>(0);
 
   useEffect(() => {
-    loadCredits(setCredits)
-  }, [])
+    loadCredits(setCredits);
+  }, []);
 
   useEffect(() => {
-    AsyncStorage.setItem("userCredits", credits.toString())
-  }, [credits])
+    AsyncStorage.setItem("userCredits", credits.toString());
+  }, [credits]);
 
   const pickImageSource = async () => {
-    const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync()
-    const { status: galleryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
+    const { status: galleryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (cameraStatus !== "granted" || galleryStatus !== "granted") {
-      Alert.alert("Permission Required", "Camera and gallery permissions are required!")
-      return
+      Alert.alert("Permission Required", "Camera and gallery permissions are required!");
+      return;
     }
 
     Alert.alert("Choose Image Source", "Would you like to take a photo or choose from your gallery?", [
@@ -57,8 +55,11 @@ export default function OCRScreen() {
             mediaTypes: ["images"],
             allowsEditing: true,
             quality: 1,
-          })
-          if (!result.canceled) setImageUri(result.assets[0].uri)
+          });
+          if (!result.canceled) {
+            setImageUri(result.assets[0].uri);
+            handleProcessImage(result.assets[0].uri); // Automatically process the image
+          }
         },
       },
       {
@@ -68,66 +69,55 @@ export default function OCRScreen() {
             mediaTypes: ["images"],
             allowsEditing: true,
             quality: 1,
-          })
-          if (!result.canceled) setImageUri(result.assets[0].uri)
+          });
+          if (!result.canceled) {
+            setImageUri(result.assets[0].uri);
+            handleProcessImage(result.assets[0].uri); // Automatically process the image
+          }
         },
       },
       { text: "Cancel", style: "cancel" },
-    ])
-  }
+    ]);
+  };
 
-  const handleProcessImage = async () => {
-    if (!imageUri) return
-    if (!deductCredits(CREDITS_PER_IMAGE, credits, setCredits)) return
+  const handleProcessImage = async (uri: string) => {
+    if (!uri) return;
+    if (!deductCredits(CREDITS_PER_IMAGE, credits, setCredits)) return;
 
-    setLoading(true)
-    setExtractedText("")
-    setGeminiResponse(null)
+    setLoading(true);
+    setExtractedText("");
+    setGeminiResponse(null);
 
     try {
-      const text = await processImage(imageUri)
-      setExtractedText(text)
+      const text = await processImage(uri);
+      setExtractedText(text);
     } catch (error) {
-      console.error("Error processing image:", error)
-      Alert.alert("Error", "Failed to process image. Please check the API key and image format.")
+      console.error("Error processing image:", error);
+      Alert.alert("Error", "Failed to process image. Please check the API key and image format.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSendToGemini = async () => {
     if (!extractedText.trim()) {
-      Alert.alert("Error", "No valid question found.")
-      return
+      Alert.alert("Error", "No valid question found.");
+      return;
     }
-    if (!deductCredits(CREDITS_PER_GEMINI_REQUEST, credits, setCredits)) return
+    if (!deductCredits(CREDITS_PER_GEMINI_REQUEST, credits, setCredits)) return;
 
-    setLoading(true)
+    setLoading(true);
 
     try {
-      const response = await sendToGemini(extractedText)
-      setGeminiResponse(response)
+      const response = await sendToGemini(extractedText);
+      setGeminiResponse(response);
     } catch (error) {
-      console.error("Error fetching Gemini response:", error)
-      Alert.alert("Error", "Failed to get response from Gemini.")
+      console.error("Error fetching Gemini response:", error);
+      Alert.alert("Error", "Failed to get response from Gemini.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
-
-  const clearAll = () => {
-    Alert.alert("Clear All", "Are you sure you want to clear the image and text?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Clear",
-        onPress: () => {
-          setImageUri(null)
-          setExtractedText("")
-          setGeminiResponse(null)
-        },
-      },
-    ])
-  }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -135,7 +125,7 @@ export default function OCRScreen() {
       <LinearGradient colors={["#4c669f", "#3b5998", "#192f6a"]} style={styles.gradientBackground}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
-            <Text style={styles.title}>OCR Assistant</Text>
+            <Text style={styles.title}>GetAnswer</Text>
             <View style={styles.creditContainer}>
               <Ionicons name="star" size={24} color="#FFD700" />
               <Text style={styles.creditText}>{credits}</Text>
@@ -155,54 +145,44 @@ export default function OCRScreen() {
             </View>
           )}
 
-          <TouchableOpacity
-            style={[styles.actionButton, !imageUri && styles.disabledButton]}
-            onPress={handleProcessImage}
-            disabled={!imageUri || loading}
-          >
-            <Ionicons name="text" size={24} color="white" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Extract Text</Text>
-          </TouchableOpacity>
-
           {loading && <ActivityIndicator size="large" color="#ffffff" style={styles.loader} />}
 
-          <View style={styles.textContainer}>
-            <Text style={styles.sectionTitle}>Extracted Text:</Text>
-            <TextInput
-              style={styles.textInput}
-              multiline
-              value={extractedText}
-              onChangeText={setExtractedText}
-              placeholder="Extracted text will appear here. You can edit it."
-              placeholderTextColor="#ffffff80"
-              editable={!loading}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.actionButton, !extractedText && styles.disabledButton]}
-            onPress={handleSendToGemini}
-            disabled={!extractedText || loading}
-          >
-            <Ionicons name="chatbubble-ellipses" size={24} color="white" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Get Answer</Text>
-          </TouchableOpacity>
-
-          {geminiResponse && (
-            <View style={styles.responseContainer}>
-              <Text style={styles.sectionTitle}>Gemini Response:</Text>
-              <Text style={styles.responseText}>{geminiResponse}</Text>
+          {extractedText && (
+            <View style={styles.textContainer}>
+              <Text style={styles.sectionTitle}>Extracted Text:</Text>
+              <TextInput
+                style={styles.textInput}
+                multiline
+                value={extractedText}
+                onChangeText={setExtractedText}
+                placeholder="Extracted text will appear here. You can edit it."
+                placeholderTextColor="#ffffff80"
+                editable={!loading}
+              />
             </View>
           )}
 
-          <TouchableOpacity style={styles.clearButton} onPress={clearAll} disabled={loading}>
-            <Ionicons name="trash" size={24} color="white" style={styles.buttonIcon} />
-            <Text style={styles.buttonText}>Clear All</Text>
-          </TouchableOpacity>
+          {extractedText && (
+            <TouchableOpacity
+              style={[styles.actionButton, !extractedText && styles.disabledButton]}
+              onPress={handleSendToGemini}
+              disabled={!extractedText || loading}
+            >
+              <Ionicons name="chatbubble-ellipses" size={24} color="white" style={styles.buttonIcon} />
+              <Text style={styles.buttonText}>Get Answer</Text>
+            </TouchableOpacity>
+          )}
+
+          {geminiResponse && (
+            <View style={styles.responseContainer}>
+              <Text style={styles.sectionTitle}>Response:</Text>
+              <Text style={styles.responseText}>{geminiResponse}</Text>
+            </View>
+          )}
         </ScrollView>
       </LinearGradient>
     </SafeAreaView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -272,15 +252,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 16,
   },
-  clearButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#FF5252",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
-    marginTop: 20,
-  },
   image: {
     width: 300,
     height: 300,
@@ -288,7 +259,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 3,
     borderColor: "white",
-    resizeMode:"contain"
+    resizeMode: "contain",
   },
   placeholderImage: {
     width: 300,
@@ -335,5 +306,4 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     color: "white",
   },
-})
-
+});

@@ -3,9 +3,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text, View } from "react-native";
 
 export default function TabLayout() {
-  // Example: Add a badge for the chat tab
-  const chatUnreadCount = 3; // Replace with your actual unread count logic
-
   return (
     <Tabs
       screenOptions={{
@@ -18,6 +15,8 @@ export default function TabLayout() {
           paddingTop: 5,
           height: 60, // Slightly taller tab bar
         },
+        
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: "#1e90ff", // Bright blue for active tab
         tabBarInactiveTintColor: "#a0a0a0", // Gray for inactive tabs
         tabBarLabelStyle: {
