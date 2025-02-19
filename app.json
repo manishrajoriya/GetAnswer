@@ -2,7 +2,7 @@
   "expo": {
     "name": "GetAnswer",
     "slug": "GetAnswer",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
@@ -42,13 +42,7 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      [
-        "expo-ads-admob",
-        {
-          "androidAppId": "ca-app-pub-7994790550123051~4924078097",
-          "iosAppId": "ca-app-pub-7994790550123051/8950194845"
-        }
-      ]
+      "react-native-vision-camera"
     ],
     "experiments": {
       "typedRoutes": true
@@ -61,7 +55,7 @@
         "projectId": "26529d25-39df-418b-b29f-b47c8540bf9e"
       }
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "1.0.2",
     "updates": {
       "url": "https://u.expo.dev/26529d25-39df-418b-b29f-b47c8540bf9e"
     }
