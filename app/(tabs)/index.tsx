@@ -7,7 +7,6 @@ import Tesseract from "tesseract.js";
 const OCRScreen = () => {
   const [imageUri, setImageUri] = useState("");
   const [extractedText, setExtractedText] = useState("");
-
   
   useEffect(() => {
     (async () => {
