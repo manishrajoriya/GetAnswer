@@ -58,7 +58,7 @@ export default function OCRScreen() {
           });
           if (!result.canceled) {
             setImageUri(result.assets[0].uri);
-            handleProcessImage(result.assets[0].uri); // Automatically process the image
+            handleProcessImage(result.assets[0].uri); 
           }
         },
       },
