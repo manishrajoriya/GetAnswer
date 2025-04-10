@@ -12,12 +12,14 @@ import {
   Keyboard,
   Dimensions,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Animatable from "react-native-animatable";
 import * as Clipboard from "expo-clipboard";
+import { Ionicons } from "@expo/vector-icons";
 import { sendToGemini } from "@/utils/apiUtils";
 import { deductCredits, loadCredits } from "@/utils/creditUtils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -25,7 +27,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 interface Message {
   id: string;
   text: string;
-  sender: "user" | "other";
+  sender: "user" | "ai";
+  timestamp: Date;
+  status?: "sending" | "sent" | "error";
 }
 
 const CREDITS_PER_GEMINI_REQUEST = 2;
@@ -61,6 +65,8 @@ export default function ChatScreen() {
       id: Date.now().toString(),
       text: inputText.trim(),
       sender: "user",
+      timestamp: new Date(),
+      status: "sending",
     };
 
     setMessages((prevMessages) => [...prevMessages, newMessage]);
@@ -68,18 +74,27 @@ export default function ChatScreen() {
     setIsLoading(true);
     Keyboard.dismiss();
 
-    if (!deductCredits(CREDITS_PER_GEMINI_REQUEST, credits, setCredits)) return;
+    if (!await deductCredits(CREDITS_PER_GEMINI_REQUEST, credits, setCredits, 'Chat message')) return;
 
     try {
       const responseText = await sendToGemini(inputText.trim());
       const responseMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: responseText,
-        sender: "other",
+        sender: "ai",
+        timestamp: new Date(),
+        status: "sent",
       };
       setMessages((prevMessages) => [...prevMessages, responseMessage]);
     } catch (error) {
       console.error("Failed to send message:", error);
+      setMessages((prevMessages) => 
+        prevMessages.map(msg => 
+          msg.id === newMessage.id 
+            ? { ...msg, status: "error" }
+            : msg
+        )
+      );
       Alert.alert("Error", "Failed to send message. Please try again.");
     } finally {
       setIsLoading(false);
@@ -98,21 +113,42 @@ export default function ChatScreen() {
       .replace(/\\"/g, '"');
 
     return (
-      <TouchableOpacity
-        onPress={() => copyToClipboard(formattedText)}
-        activeOpacity={0.7}
+      <Animatable.View
+        animation={item.sender === "user" ? "fadeInRight" : "fadeInLeft"}
+        duration={500}
+        style={[
+          styles.messageContainer,
+          item.sender === "user" ? styles.userMessage : styles.aiMessage,
+        ]}
       >
-        <Animatable.View
-          animation={item.sender === "user" ? "fadeInRight" : "fadeInLeft"}
-          duration={500}
-          style={[
-            styles.messageBubble,
-            item.sender === "user" ? styles.userMessage : styles.otherMessage,
-          ]}
-        >
+        <View style={styles.messageContent}>
           <Text style={styles.messageText}>{formattedText}</Text>
-        </Animatable.View>
-      </TouchableOpacity>
+          <View style={styles.messageFooter}>
+            <Text style={styles.messageTime}>
+              {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+            {item.sender === "user" && (
+              <View style={styles.messageStatus}>
+                {item.status === "sending" && (
+                  <ActivityIndicator size="small" color="#666" />
+                )}
+                {item.status === "error" && (
+                  <Ionicons name="alert-circle" size={16} color="#ff4444" />
+                )}
+                {item.status === "sent" && (
+                  <Ionicons name="checkmark-done" size={16} color="#4CAF50" />
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+        <TouchableOpacity
+          style={styles.copyButton}
+          onPress={() => copyToClipboard(formattedText)}
+        >
+          <Ionicons name="copy-outline" size={16} color="#666" />
+        </TouchableOpacity>
+      </Animatable.View>
     );
   };
 
@@ -123,10 +159,17 @@ export default function ChatScreen() {
     >
       <SafeAreaView style={styles.safeArea}>
         <StatusBar style="light" />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Academic Chat</Text>
+          <View style={styles.creditsContainer}>
+            <Ionicons name="star" size={20} color="#FFD700" />
+            <Text style={styles.creditsText}>{credits}</Text>
+          </View>
+        </View>
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "padding"} // Use "padding" for both platforms
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardAvoidingView}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0} // Adjust offset for iOS
+          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
         >
           <FlatList
             ref={flatListRef}
@@ -138,26 +181,35 @@ export default function ChatScreen() {
               flatListRef.current?.scrollToEnd({ animated: true })
             }
             onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Ionicons name="chatbubble-ellipses" size={48} color="#999" />
+                <Text style={styles.emptyText}>
+                  Start a conversation by typing your academic question
+                </Text>
+              </View>
+            }
           />
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
               value={inputText}
               onChangeText={setInputText}
-              placeholder="Type a question..."
+              placeholder="Type your academic question..."
               placeholderTextColor="#999"
               editable={!isLoading}
-              onSubmitEditing={sendMessage}
+              multiline
+              maxLength={500}
             />
             <TouchableOpacity
-              style={styles.sendButton}
+              style={[styles.sendButton, isLoading && styles.sendButtonDisabled]}
               onPress={sendMessage}
-              disabled={isLoading}
+              disabled={isLoading || !inputText.trim()}
             >
               {isLoading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.sendButtonText}>Get</Text>
+                <Ionicons name="send" size={24} color="white" />
               )}
             </TouchableOpacity>
           </View>
@@ -174,6 +226,36 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
   },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "white",
+    letterSpacing: 0.5,
+  },
+  creditsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 8,
+  },
+  creditsText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
   keyboardAvoidingView: {
     flex: 1,
   },
@@ -181,63 +263,114 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 80, // Add padding at the bottom to avoid overlap with the input container
+    paddingBottom: 100,
   },
-  messageBubble: {
+  messageContainer: {
     maxWidth: width * 0.8,
-    padding: 12,
+    marginBottom: 12,
     borderRadius: 20,
-    marginBottom: 8,
-    elevation: 2,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "flex-end",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   userMessage: {
     alignSelf: "flex-end",
-    backgroundColor: "#dcf8c6",
+    backgroundColor: "#075e54",
+    borderBottomRightRadius: 4,
   },
-  otherMessage: {
+  aiMessage: {
     alignSelf: "flex-start",
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderBottomLeftRadius: 4,
+  },
+  messageContent: {
+    flex: 1,
   },
   messageText: {
     fontSize: 16,
     lineHeight: 24,
+    color: "white",
+  },
+  messageFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  messageTime: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.6)",
+  },
+  messageStatus: {
+    marginLeft: 8,
+  },
+  copyButton: {
+    marginLeft: 8,
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
   },
   inputContainer: {
     flexDirection: "row",
     padding: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
     borderTopWidth: 1,
-    borderTopColor: "#eee",
-    position: "absolute", // Fix the input container at the bottom
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
   },
   input: {
     flex: 1,
-    backgroundColor: "#f0f0f0",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    borderRadius: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    marginRight: 12,
     fontSize: 16,
+    color: "white",
+    maxHeight: 120,
   },
   sendButton: {
     backgroundColor: "#075e54",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderRadius: 24,
+    width: 48,
+    height: 48,
     justifyContent: "center",
     alignItems: "center",
-    width: 60,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  sendButtonText: {
-    color: "#fff",
+  sendButtonDisabled: {
+    opacity: 0.5,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  emptyText: {
+    color: "white",
     fontSize: 16,
-    fontWeight: "bold",
+    textAlign: "center",
+    opacity: 0.7,
+    marginTop: 16,
+    paddingHorizontal: 32,
   },
-});
+} as const);
