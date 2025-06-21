@@ -1,8 +1,8 @@
 import axios from "axios"
 import * as FileSystem from "expo-file-system"
 
-const GOOGLE_CLOUD_VISION_API_KEY = "AIzaSyCH7Dui21bAhQj3Btca01f8uwqAg6Pl6Ic" // Replace with actual API key
-const GEMINI_API_KEY = "AIzaSyC6kyFZzFdB_XJfibAjsp3IVjGT6v3XlVg" // Replace with actual API key
+const GOOGLE_CLOUD_VISION_API_KEY = "" // Replace with actual API key
+const GEMINI_API_KEY = "" // Replace with actual API key
 
 export const processImage = async (imageUri: string): Promise<string> => {
   try {
